@@ -1,0 +1,103 @@
+.env structure:
+NODE_ENV=development
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/medical-appointments
+JWT_SECRET=development_jwt_secret_key_change_in_production
+JWT_LIFETIME=7d
+API_URL=http://localhost:3000
+LOG_LEVEL=debug
+
+If using Docker Compose:
+API: http://localhost:3000
+API Documentation: http://localhost:3000/api-docs
+Health Check: http://localhost:3000/health
+Metrics: http://localhost:3000/metrics
+
+If using Kubernetes:
+API: http://localhost:30000
+API Documentation: http://localhost:30000/api-docs
+Prometheus: http://localhost:30090
+Grafana: http://localhost:30300 (login: admin, password: SecurePassword123!)
+Kubernetes Dashboard: https://localhost:30001
+
+Corriendo con kubernetes:
+# Create a secret for MongoDB and JWT (run this first)
+kubectl create secret generic medical-api-secrets \
+  --from-literal=mongodb_uri='mongodb://user:password@mongodb-service:27017/medical-appointments' \
+  --from-literal=jwt_secret='your_secure_jwt_secret'
+
+# Deploy the application components
+kubectl apply -f kubernetes/configmap.yaml
+kubectl apply -f kubernetes/deployment.yaml
+kubectl apply -f kubernetes/service.yaml
+kubectl apply -f kubernetes/autoscaler.yaml
+
+# Deploy monitoring components
+kubectl apply -f kubernetes/monitoring/prometheus-config.yaml
+kubectl apply -f kubernetes/monitoring/prometheus-deployment.yaml
+kubectl apply -f kubernetes/monitoring/prometheus-service.yaml
+
+kubectl apply -f kubernetes/monitoring/grafana-secrets.yaml
+kubectl apply -f kubernetes/monitoring/grafana-datasources-configmap.yaml
+kubectl apply -f kubernetes/monitoring/grafana-dashboards-configmap.yaml
+kubectl apply -f kubernetes/monitoring/grafana-deployment.yaml
+kubectl apply -f kubernetes/monitoring/grafana-service.yaml
+
+kubectl apply -f kubernetes/monitoring/dashboard-deployment.yaml
+kubectl apply -f kubernetes/monitoring/dashboard-service.yaml
+
+# Check if pods are running
+kubectl get pods
+
+# Check services
+kubectl get services
+
+# Troubleshooting Steps for Monitoring Setup
+# ==========================================
+
+# 1. If medical-api pods are in CrashLoopBackOff state, it may be due to Docker image issues.
+# Build the Docker image for the medical API using Minikube's Docker daemon:
+eval $(minikube docker-env)  # Linux/Mac
+# Or for Windows PowerShell:
+& minikube -p minikube docker-env | Invoke-Expression
+docker build -t medical-api:latest .
+
+# 2. Check if the application is connecting to MongoDB:
+# If database connection is failing, improve the database.js file with retry logic
+# Example modification to src/config/database.js:
+# - Add connection retries (5 retries with 5 second delay)
+# - Remove process.exit(1) that causes pod crashes
+# - Set dbConnectionGauge to 0 for disconnected state
+
+# 3. Update the application to continue running even when database connection fails:
+# Modify src/index.js to:
+# - Handle database connection failures gracefully
+# - Continue running the app even when MongoDB is unavailable 
+# - Keep the /metrics endpoint available for Prometheus
+# - Return "healthy" from the health check endpoint (but indicate DB status)
+
+# 4. After making these changes, rebuild the Docker image and restart the deployment:
+docker build -t medical-api:latest .
+kubectl rollout restart deployment medical-api
+
+# 5. Verify pods are running correctly:
+kubectl get pods -l app=medical-api
+# They should show "Running" with "1/1 READY" status
+
+# 6. Verify the service has active endpoints:
+kubectl describe service medical-api-service
+# Should show "Endpoints: [IP addresses:3000]"
+
+# 7. To test the metrics endpoint directly:
+kubectl port-forward svc/medical-api-service 3001:80
+curl http://localhost:3001/metrics
+
+# 8. Check Prometheus targets:
+kubectl port-forward svc/prometheus 9090:9090
+# Navigate to http://localhost:9090/targets in browser
+# The medical-api target should show as "UP"
+
+# 9. Access Grafana dashboards:
+kubectl port-forward svc/grafana 3000:80
+# Navigate to http://localhost:3000 (login: admin, password: SecurePassword123!)
+# Check "Medical API Dashboard" and "Medical API Request Metrics"

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: medical-api-config
+data:
+  API_URL: "http://medical-api-service"
+  NODE_ENV: "production"
+  PORT: "3000"
+  LOG_LEVEL: "info"

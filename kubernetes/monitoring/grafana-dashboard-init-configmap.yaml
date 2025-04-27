@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-init
+  labels:
+    app: grafana
+data:
+  init.sh: |
+    #!/bin/sh
+    set -e
+    
+    # Create dashboard directory if it doesn't exist
+    mkdir -p /var/lib/grafana/dashboards
+    
+    # Copy JSON files directly from ConfigMap
+    echo "Copying medical-api dashboard..."
+    cat /etc/grafana/dashboards/medical-api-dashboard.json > /var/lib/grafana/dashboards/medical-api-dashboard.json
+    
+    echo "Copying API metrics dashboard..."
+    cat /etc/grafana/dashboards/api-metrics-dashboard.json > /var/lib/grafana/dashboards/api-metrics-dashboard.json
+    
+    # Set correct permissions
+    echo "Setting permissions..."
+    chown -R 472:472 /var/lib/grafana/dashboards
+    
+    echo "Dashboard initialization completed."

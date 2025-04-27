@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-dashboard
+  namespace: kubernetes-dashboard
+  labels:
+    app: monitoring-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring-dashboard
+  template:
+    metadata:
+      labels:
+        app: monitoring-dashboard
+    spec:
+      serviceAccountName: dashboard-admin
+      containers:
+      - name: kube-dashboard
+        image: kubernetesui/dashboard:v2.7.0
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+        args:
+          - --auto-generate-certificates
+          - --namespace=kubernetes-dashboard
+          - --enable-skip-login
+          - --disable-settings-authorizer
+        livenessProbe:
+          httpGet:
+            scheme: HTTPS
+            path: /
+            port: 8443
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"

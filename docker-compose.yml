@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  medical-api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/medical-appointments
+      - JWT_SECRET=dev_jwt_secret_key
+      - JWT_LIFETIME=7d
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+  mongo-express:
+    image: mongo-express:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+volumes:
+  mongodb-data:
